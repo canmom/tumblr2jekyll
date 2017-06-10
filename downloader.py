@@ -11,6 +11,7 @@ import requests
 # read id off command line
 parser = ArgumentParser(description='Download Tumblr text post specified by id, and format for Jekyll')
 parser.add_argument('id',help='id of the post to download')
+parser.add_argument('--blog',help='name of the tumblr blog to download posts from',default='canmom')
 args=parser.parse_args()
 
 with k as open('api_keys.txt'):
@@ -21,7 +22,7 @@ with k as open('api_keys.txt'):
 client = TumblrRestClient(*api_keys)
 
 def get_post(client,args):
-    posts = client.posts('canmom',id=args.id)['posts']
+    posts = client.posts(args.blog,id=args.id)['posts']
     assert len(posts)==1, 'Expected only one post, received ' + len(posts)
     post = posts[0]
 
@@ -123,14 +124,14 @@ def generate_filename(title,date,html):
     else:
         slug = slugify(re.sub('<[^<]+?>', '', html),max_length=50,word_boundary=True)
 
-    return 'posts/' + date + '-' + slug
+    return date + '-' + slug
 
 title, date, html = get_post(client,args)
 filename = generate_filename(title,date,html)
 html = clean_html(html,filename)
 output = add_jekyll_boilerplate(title,html)
 
-file = open(filename+'.html','w', encoding='utf8')
+file = open('posts/' + filename+'.html','w', encoding='utf8')
 file.write(output)
 file.close()
 print('processed',filename)
