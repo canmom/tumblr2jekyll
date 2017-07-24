@@ -1,12 +1,12 @@
 import re
 import string
 import os
-from pytumblr import TumblrRestClient
 from argparse import ArgumentParser
 from slugify import slugify
 from bs4 import BeautifulSoup
 from tidylib import tidy_fragment
 import requests
+#from requests_oauthlib import OAuth1
 
 # read id off command line
 parser = ArgumentParser(description='Download Tumblr text post specified by id, and format for Jekyll')
@@ -14,16 +14,18 @@ parser.add_argument('id',help='id of the post to download')
 parser.add_argument('--blog',help='name of the tumblr blog to download posts from',default='canmom')
 args=parser.parse_args()
 
-with k as open('api_keys.txt'):
-    api_keys = k.readlines()
-    k.close()
+with open('api-keys.txt') as keyfile:
+    keys = [key.strip() for key in keyfile]
+    keyfile.close()
 
-#init tumblr API client
-client = TumblrRestClient(*api_keys)
+def get_post(args,keys):
+    url = 'https://api.tumblr.com/v2/blog/{0}.tumblr.com/posts?api_key={1}&id={2}'.format(args.blog, keys[0], args.id)
+    #auth = OAuth1(*keys)
+    #posts = requests.get(url,auth=auth).json['posts']
+    response = requests.get(url)
 
-def get_post(client,args):
-    posts = client.posts(args.blog,id=args.id)['posts']
-    assert len(posts)==1, 'Expected only one post, received ' + len(posts)
+    posts = response.json()['response']['posts']
+    assert len(posts)==1, 'Expected only one post, received ' + str(len(posts))
     post = posts[0]
 
     title = post['title']
@@ -126,7 +128,7 @@ def generate_filename(title,date,html):
 
     return date + '-' + slug
 
-title, date, html = get_post(client,args)
+title, date, html = get_post(args,keys)
 filename = generate_filename(title,date,html)
 html = clean_html(html,filename)
 output = add_jekyll_boilerplate(title,html)

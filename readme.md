@@ -6,19 +6,18 @@ https://canmom.tumblr.com/post/86342049687/how-to-write-your-name-on-the-moon
 ```
 the ID is the number `86342049687`.
 
-##Requirements
+## Requirements
 
-- the Python 3 version of [pytumblr](https://github.com/tumblr/pytumblr)
 - [slugify](https://github.com/un33k/python-slugify)
 - [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/)
 - [pytidylib](http://countergram.com/open-source/pytidylib/)
-- the HTML5 version of [HTML-tidy](http://www.html-tidy.org/)
+- the HTML5 version of [HTML-tidy](http://www.html-tidy.org/) - currently this is not available in many package repositories, so you'll probably need to compile it from source and make sure it's on your PATH.
 
 All but the last may be installed with PIP.
 
 Additionally, you must generate a key and secret for the [Tumblr REST API](https://www.tumblr.com/docs/en/api/v2) and a corresponding OAuth token and secret. These should be placed in a file api_keys.txt at the root of the project, one key per line.
 
-##Usage
+## Usage
 ```
 python3 downloader.py ID [--blog BLOG]
 ```
