@@ -1,3 +1,4 @@
 img/
 posts/
 api-keys.txt
+__pycache__/
