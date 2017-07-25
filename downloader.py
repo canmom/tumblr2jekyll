@@ -1,5 +1,4 @@
 import re
-import string
 import os
 from argparse import ArgumentParser
 from slugify import slugify
@@ -9,17 +8,13 @@ import requests
 
 import util
 
-# read id off command line
-parser = ArgumentParser(description='Download Tumblr text post specified by id, and format for Jekyll')
-parser.add_argument('id',help='id of the post to download')
-parser.add_argument('--blog',help='name of the tumblr blog to download posts from',default='canmom')
-args=parser.parse_args()
-
-def get_post(args):
-    posts = util.get_posts(args.blog,{'id' : args.id})
+def get_post(blog,post_id):
+    posts = util.get_posts(blog,{'id' : post_id})
 
     assert len(posts)==1, 'Expected only one post, received ' + str(len(posts))
     post = posts[0]
+    print(post['type'])
+    assert post['type'] == 'text'
 
     title = post['title']
     date = post['date'].split(' ')[0]
@@ -121,14 +116,20 @@ def generate_filename(title,date,html):
 
     return date + '-' + slug
 
-title, date, html = get_post(args)
-if title is None:
-    title = 'post-'+args.id
-filename = generate_filename(title,date,html)
-html = clean_html(html,filename)
-output = add_jekyll_boilerplate(title,html)
+def save_post(blog,post_id):
+    try:
+        title, date, html = get_post(blog,post_id)
+    except AssertionError:
+        print('Post is not a text post.')
+        return
 
-file = open('posts/' + filename+'.html','w', encoding='utf8')
-file.write(output)
-file.close()
-print('processed',filename)
+    if title is None:
+        title = 'post-'+post_id
+    filename = generate_filename(title,date,html)
+    html = clean_html(html,filename)
+    output = add_jekyll_boilerplate(title,html)
+
+    file = open('posts/' + filename+'.html','w', encoding='utf8')
+    file.write(output)
+    file.close()
+    print('processed',filename)
