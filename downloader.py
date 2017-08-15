@@ -8,19 +8,92 @@ import requests
 
 import util
 
+def clean_date(datetime_string):
+    return datetime_string.split(' ')[0]
+
+def parse_text_post(post):
+    assert post['type'] == 'text'
+
+    title = post['title']
+    date = clean_date(post['date'])
+    html = post['body']
+
+    return (title, date, html)
+
+def parse_link_post(post):
+    assert post['type'] == 'link'
+
+    html_template = "{link}\n{description}"
+    link_template = "<h1 class='link'><a href='{href}'>{text}</a></h1>\n"
+
+    link = link_template.format(href=post['url'],text=post['title'])
+    html = html_template.format(link=link,description=post['description'])
+
+    title = post['title']
+    date = clean_date(post['date'])
+
+    return (title, date, html)
+
+def parse_photo_post(post):
+    assert post['type'] == 'photo'
+
+    html_template = "{section}\n{caption}"
+    section_template = "<section class='photoset'>\n{figures}\n</section>"
+    figure_template = '<figure>\n{photo}\n{figcaption}\n</figure>\n'
+    figcaption_template = '<figcaption>{caption}</figcaption>'
+    img_template = "<img src='{src}'>"
+
+    figures = []
+
+    for photo in post['photos']:
+        if photo['caption'] != '':
+            figcaption = figcaption_template.format(caption=photo['caption'])
+        else:
+            figcaption = ''
+        src = photo['alt_sizes'][0]['url']
+        img = img_template.format(src=src)
+        figure = figure_template.format(photo=img,figcaption=figcaption)
+        figures.append(figure)
+
+    section = section_template.format(figures='\n'.join(figures))
+
+    html = html_template.format(section=section,caption=post['caption'])
+
+    date = clean_date(post['date'])
+    title = None
+    
+    return (title, date, html)
+
+def parse_answer_post(post):
+    assert post['type'] == 'answer'
+
+    html_template = "{question}\n{answer}"
+    question_template = "<p><a class='tumblr_blog' href='{url}'>{asker}</a> asked:</p>\n<blockquote class='ask'>{question}</blockquote>"
+
+    question = question_template.format(url=post['asking_url'],asker=post['asking_name'],question=post['question'])
+    html = html_template.format(question=question,answer=post['answer'])
+
+    date = clean_date(post['date'])
+    title = None
+
+    return (title, date, html)
+
 def get_post(blog,post_id):
     posts = util.get_posts(blog,{'id' : post_id})
 
     assert len(posts)==1, 'Expected only one post, received ' + str(len(posts))
     post = posts[0]
-    print(post['type'])
-    assert post['type'] == 'text'
 
-    title = post['title']
-    date = post['date'].split(' ')[0]
-    html = post['body']
-
-    return (title, date, html)
+    if post['type'] == 'text':
+        return parse_text_post(post)
+    elif post['type'] == 'photo':
+        return parse_photo_post(post)
+    elif post['type'] == 'link':
+        return parse_link_post(post)
+    elif post['type'] == 'answer':
+        return parse_answer_post(post)
+    else:
+        raise NotImplementedError('Unimplemented post type: ' + post['type'])
 
 def clean_figures(soup):
     for tag in soup.find_all(attrs={'class':'tmblr-full'}):
