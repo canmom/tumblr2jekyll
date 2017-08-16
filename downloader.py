@@ -15,10 +15,9 @@ def parse_text_post(post):
     assert post['type'] == 'text'
 
     title = post['title']
-    date = clean_date(post['date'])
     html = post['body']
 
-    return (title, date, html)
+    return (title, html)
 
 def parse_link_post(post):
     assert post['type'] == 'link'
@@ -30,9 +29,8 @@ def parse_link_post(post):
     html = html_template.format(link=link,description=post['description'])
 
     title = post['title']
-    date = clean_date(post['date'])
 
-    return (title, date, html)
+    return (title, html)
 
 def parse_photo_post(post):
     assert post['type'] == 'photo'
@@ -59,10 +57,9 @@ def parse_photo_post(post):
 
     html = html_template.format(section=section,caption=post['caption'])
 
-    date = clean_date(post['date'])
     title = None
     
-    return (title, date, html)
+    return (title, html)
 
 def parse_answer_post(post):
     assert post['type'] == 'answer'
@@ -73,10 +70,9 @@ def parse_answer_post(post):
     question = question_template.format(url=post['asking_url'],asker=post['asking_name'],question=post['question'])
     html = html_template.format(question=question,answer=post['answer'])
 
-    date = clean_date(post['date'])
     title = None
 
-    return (title, date, html)
+    return (title, html)
 
 def get_post(blog,post_id):
     posts = util.get_posts(blog,{'id' : post_id})
@@ -84,16 +80,21 @@ def get_post(blog,post_id):
     assert len(posts)==1, 'Expected only one post, received ' + str(len(posts))
     post = posts[0]
 
+    date = clean_date(post['date'])
+    permalink = post['post_url']
+
     if post['type'] == 'text':
-        return parse_text_post(post)
+        title, html = parse_text_post(post)
     elif post['type'] == 'photo':
-        return parse_photo_post(post)
+        title, html = parse_photo_post(post)
     elif post['type'] == 'link':
-        return parse_link_post(post)
+        title, html = parse_link_post(post)
     elif post['type'] == 'answer':
-        return parse_answer_post(post)
+        title, html = parse_answer_post(post)
     else:
         raise NotImplementedError('Unimplemented post type: ' + post['type'])
+
+    return (title, date, html, permalink)
 
 def clean_figures(soup):
     for tag in soup.find_all(attrs={'class':'tmblr-full'}):
@@ -143,7 +144,8 @@ def tidy(soup):
     print(tidy_output[1])
     return html
 
-def download_images(soup,images_subfolder):
+def fix_images(soup,images_subfolder):
+    image_urls = []
     for index, tag in enumerate(soup.find_all('img')):
         tumblr_url = tag['src']
         #we don't need to worry about fancy URL parsing because Tumblr embedded image URLs are consistent
@@ -153,6 +155,12 @@ def download_images(soup,images_subfolder):
         jekyll_url = '{{ site.url }}/' + jekyll_path + '/' + jekyll_filename
         tag['src'] = jekyll_url
 
+        image_urls.append((tumblr_url, jekyll_path, jekyll_filename))
+
+    return image_urls
+
+def download_images(image_urls):
+    for tumblr_url, jekyll_path, jekyll_filename in image_urls:
         print('downloading '+tumblr_url)
         os.makedirs(jekyll_path,exist_ok=True)
         image_file = open(jekyll_path + '/' + jekyll_filename,'wb')
@@ -172,14 +180,14 @@ def clean_html(html,images_subfolder):
     #clean up in soup form
     clean_figures(soup)
     fix_nested_lists(soup)
-    download_images(soup,images_subfolder)
+    image_urls = fix_images(soup,images_subfolder)
 
-    return tidy(soup)
+    return tidy(soup), image_urls
 
-def add_jekyll_boilerplate(title,html):
-    jekyll_boilerplate = '---\ntitle: ' + title + '\nlayout: article\n---\n'
+def add_jekyll_boilerplate(title,html,origin):
+    jekyll_boilerplate = '---\ntitle: {title}\nlayout: article\norigin: {origin}\n---\n{html}'
 
-    return jekyll_boilerplate + html
+    return jekyll_boilerplate.format(title=title,html=html,origin=origin)
 
 def generate_filename(title,date,html):
     if title:
@@ -189,18 +197,17 @@ def generate_filename(title,date,html):
 
     return date + '-' + slug
 
-def save_post(blog,post_id):
-    try:
-        title, date, html = get_post(blog,post_id)
-    except AssertionError:
-        print('Post is not a text post.')
-        return
+def save_post(blog,post_id,fetch_images=True):
+    title, date, html, permalink = get_post(blog,post_id)
 
     if title is None:
         title = 'post-'+post_id
     filename = generate_filename(title,date,html)
-    html = clean_html(html,filename)
-    output = add_jekyll_boilerplate(title,html)
+    html, image_urls = clean_html(html,filename)
+    output = add_jekyll_boilerplate(title,html,permalink)
+
+    if fetch_images:
+        download_images(image_urls)
 
     file = open('posts/' + filename+'.html','w', encoding='utf8')
     file.write(output)
