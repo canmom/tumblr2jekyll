@@ -74,12 +74,7 @@ def parse_answer_post(post):
 
     return (title, html)
 
-def get_post(blog,post_id):
-    posts = util.get_posts(blog,{'id' : post_id})
-
-    assert len(posts)==1, 'Expected only one post, received ' + str(len(posts))
-    post = posts[0]
-
+def parse_post(post):
     date = clean_date(post['date'])
     permalink = post['post_url']
 
@@ -197,11 +192,14 @@ def generate_filename(title,date,html):
 
     return date + '-' + slug
 
-def save_post(blog,post_id,fetch_images=True):
-    title, date, html, permalink = get_post(blog,post_id)
+def save_post(post,fetch_images=True, subfolder=""):
+    title, date, html, permalink = parse_post(post)
+
+    if subfolder[-1] != '/':
+        subfolder += '/'
 
     if title is None:
-        title = 'post-'+post_id
+        title = 'post-'+ str(post['id'])
     filename = generate_filename(title,date,html)
     html, image_urls = clean_html(html,filename)
     output = add_jekyll_boilerplate(title,html,permalink)
@@ -209,7 +207,8 @@ def save_post(blog,post_id,fetch_images=True):
     if fetch_images:
         download_images(image_urls)
 
-    file = open('posts/' + filename+'.html','w', encoding='utf8')
+    os.makedirs('posts/'+subfolder,exist_ok=True)
+    file = open('posts/' + subfolder + filename+'.html','w', encoding='utf8')
     file.write(output)
     file.close()
     print('processed',filename)
