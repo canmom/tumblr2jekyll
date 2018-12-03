@@ -1,6 +1,6 @@
 A Python script to assist in trasnferring content from a Tumblr blog to a Jekyll site, using the Tumblr API.
 
-The present version can only handle text posts, and works on one text post at a time. A post is identified by its 'id' number, which can be read from its URL. For example, with the post 
+The present version can only handle text posts, photo posts, link posts and answer posts. To identify a specific post, you need to use its ID; e.g. in
 ```
 https://canmom.tumblr.com/post/86342049687/how-to-write-your-name-on-the-moon
 ```
@@ -18,7 +18,27 @@ All but the last may be installed with PIP.
 Additionally, you must generate a key and secret for the [Tumblr REST API](https://www.tumblr.com/docs/en/api/v2) and a corresponding OAuth token and secret. These should be placed in a file api_keys.txt at the root of the project, one key per line.
 
 ## Usage
+Call with 
+
 ```
-python3 downloader.py ID [--blog BLOG]
+python3 tumblr2jekyll.py [-h] [--id ID] [--reblogger REBLOGGER]
+                        [--source SOURCE]
+                        [--prev_source_url [PREV_SOURCE_URL [PREV_SOURCE_URL ...]]]
+                        [--no_images] [--tag TAG] [--subfolder SUBFOLDER]
+
 ```
-The script will download the specified post if it exists, and save its HTML in the `posts/` folder with Jekyll frontmatter. Any inline images will be downloaded and placed in a subfolder corresponding to the post's filename in the `img/embed/` folder.
+with either...
+
+ - `--id`: give a post ID to download (the number after `/post/` in the permalink URL)
+
+or else, to download some or all posts from a specific blog...
+
+ - `--source`: blog to download posts from
+ - `--reblogger`: go to a second blog, and for each post originally from `--source`, navigate to the source blog and download (useful if you have a secondary blog where you reblog posts to archive them)
+ - `--prev_source_url`: other URLs to treat as a reblog by `--source` when using `--reblogger`
+ - `--tag`: only download posts if they have this tag
+
+With both approaches, the following flags can be used:
+
+ - `--subfolder`: posts will be saved in `./posts/[subfolder]`, creating if necessary
+ - `--no_images`: default behaviour is to download every image in a text post, photo or photoset and save them in an associated folder. With this flag, images will not be downloaded.
