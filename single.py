@@ -7,4 +7,7 @@ def get_post(blog,post_id,fetch_images=True, subfolder = ''):
     assert len(posts)==1, 'Expected only one post, received ' + str(len(posts))
     post = posts[0]
 
-    save_post(post,fetch_images, subfolder = subfolder)
+    try:
+        save_post(post,fetch_images, subfolder = subfolder)
+    except NotImplementedError as err:
+        print(err)

@@ -74,6 +74,61 @@ def parse_answer_post(post):
 
     return (title, html)
 
+def parse_quote_post(post):
+    assert post['type'] == 'quote'
+
+    quote_template = "<blockquote>{quote}</blockquote>\n{source}"
+
+    html = quote_template.format(quote = post['text'],source = post ['source'])
+
+    title = None
+
+    return (title, html)
+
+def parse_chat_post(post):
+    assert post['type'] == 'chat'
+
+    line_template = '<li class="person{personindex}"><strong class="name">{name}</strong> {message}</li>'
+    page_template = '<ul class="chat">{lines}</ul>'
+
+    dialogue = post['dialogue']
+    people = []
+    formatted_lines = []
+
+    for line in dialogue:
+        name = line['label']
+        message = line['phrase']
+        if name in people:
+            personindex = people.index(name) + 1
+        else:
+            people.append(name)
+            personindex = len(people)
+
+        formatted_lines.append(line_template.format(personindex = personindex, name = name, message = message))
+
+    html = page_template.format(lines="\n".join(formatted_lines))
+
+    title = post['title']
+
+    return (title, html)
+
+def parse_audio_post(post):
+    assert post['type'] == 'audio'
+
+    html_template = '{player}\n{caption}'
+
+    html = html_template.format(player = post['player'], caption = post['caption'])
+
+    title = post['track_name']
+
+    return (title, html)
+
+def parse_video_post(post):
+    assert post['type'] == 'video'
+
+def parse_npf_post(post):
+    assert post['type'] == 'blocks'
+
 def parse_post(post):
     date = clean_date(post['date'])
     permalink = post['post_url']
@@ -86,6 +141,10 @@ def parse_post(post):
         title, html = parse_link_post(post)
     elif post['type'] == 'answer':
         title, html = parse_answer_post(post)
+    elif post['type'] == 'quote':
+        title, html = parse_quote_post(post)
+    elif post['type'] == 'chat':
+        title, html = parse_chat_post(post)
     else:
         raise NotImplementedError('Unimplemented post type: ' + post['type'])
 
