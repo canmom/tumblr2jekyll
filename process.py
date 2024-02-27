@@ -126,6 +126,15 @@ def parse_audio_post(post):
 def parse_video_post(post):
     assert post['type'] == 'video'
 
+    html_template = '{player}\n{caption}'
+
+    html = html_template.format(player = post['player'], caption = post['caption'])
+
+    title = 'Video Post RENAME ME'
+
+    return (title, html)
+
+
 def parse_npf_post(post):
     assert post['type'] == 'blocks'
 
@@ -145,6 +154,8 @@ def parse_post(post):
         title, html = parse_quote_post(post)
     elif post['type'] == 'chat':
         title, html = parse_chat_post(post)
+    elif post['type'] == 'video':
+        title, html = parse_video_post(post)
     else:
         raise NotImplementedError('Unimplemented post type: ' + post['type'])
 
@@ -175,8 +186,21 @@ def clean_figures(soup):
         del tag['data-orig-height']
         del tag['data-orig-width']
         del tag['data-orig-src']
+
         if 'alt' not in tag:
             tag['alt']='ALT TEXT NEEDED!'
+
+        if 'data-tumblr-attribution' in tag.parent.attrs:
+            attribution = tag.parent['data-tumblr-attribution'].split(':')
+            attribution_name = attribution[0]
+            attribution_permalink = attribution[-1]
+            capt = soup.new_tag('figcaption')
+            tag.parent.append(capt)
+            capt.append('Gif source: ')
+            link = soup.new_tag('a', href='https://tmblr.co/'+attribution_permalink)
+            capt.append(link)
+            link.string = '@' + attribution_name
+
 
 def fix_nested_lists(soup):
     for tag in soup.find_all('ul'):
@@ -222,7 +246,7 @@ def download_images(image_urls):
         image_file.write(req.content)
         image_file.close()
 
-def clean_html(html,images_subfolder):
+def clean_html(html,images_subfolder,hotlink_images=False):
     #reformat Tumblr's returned HTML to make it consistent and pretty
 
     #clean those weird <br> tags tumblr inserts at the ends of paragraphs
@@ -234,14 +258,22 @@ def clean_html(html,images_subfolder):
     #clean up in soup form
     clean_figures(soup)
     fix_nested_lists(soup)
-    image_urls = fix_images(soup,images_subfolder)
+    if not hotlink_images:
+        image_urls = fix_images(soup,images_subfolder)
+    else:
+        image_urls = []
 
     return tidy(soup), image_urls
 
-def add_jekyll_boilerplate(title,html,origin):
-    jekyll_boilerplate = '---\ntitle: {title}\nlayout: article\norigin: {origin}\n---\n{html}'
+def add_jekyll_boilerplate(title,html,origin,categories=[]):
+    jekyll_boilerplate = '---\ntitle: {title}\nlayout: article\norigin: {origin}{categories}\n---\n{html}'
 
-    return jekyll_boilerplate.format(title=title,html=html,origin=origin)
+    if categories:
+        processed_categories = '\ncategories:\n - ' + '\n - '.join(categories)
+    else:
+        processed_categories = ''
+
+    return jekyll_boilerplate.format(title=title,html=html,origin=origin,categories=processed_categories)
 
 def generate_filename(title,date,html):
     if title:
@@ -251,23 +283,23 @@ def generate_filename(title,date,html):
 
     return date + '-' + slug
 
-def save_post(post,fetch_images=True, subfolder=""):
+def save_post(post, options):
     title, date, html, permalink = parse_post(post)
 
-    if subfolder[-1] != '/':
-        subfolder += '/'
+    if options.subfolder[-1] != '/':
+        options.subfolder += '/'
 
     if title is None:
         title = 'post-'+ str(post['id'])
     filename = generate_filename(title,date,html)
-    html, image_urls = clean_html(html,filename)
-    output = add_jekyll_boilerplate(title,html,permalink)
+    html, image_urls = clean_html(html,filename,hotlink_images=options.hotlink)
+    output = add_jekyll_boilerplate(title,html,permalink,options.categories)
 
-    if fetch_images:
+    if not options.no_images and not options.hotlink:
         download_images(image_urls)
 
-    os.makedirs('posts/'+subfolder,exist_ok=True)
-    file = open('posts/' + subfolder + filename+'.html','w', encoding='utf8')
+    os.makedirs('posts/' + options.subfolder, exist_ok=True)
+    file = open('posts/' + options.subfolder + filename + '.html', 'w', encoding='utf8')
     file.write(output)
     file.close()
     print('processed',filename)
